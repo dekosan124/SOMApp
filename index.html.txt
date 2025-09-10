@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SOMApp toDo</title>
+<style>
+  :root{
+    --bg:#fffbea; --ink:#2a2a2a; --muted:#6b6b6b; --card:#ffffff;
+    --accent1:#ffcc33; --accent2:#ffb300; --danger:#ff6666; --ok:#28a745;
+    --shadow:0 2px 8px rgba(0,0,0,.08); --radius:12px;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+       "Hiragino Sans","Noto Sans JP",sans-serif;}
+  header{
+    position:sticky;top:0;z-index:10;
+    background:linear-gradient(180deg,var(--accent1),var(--accent2));
+    color:#333; padding:16px 16px 12px; box-shadow:var(--shadow);
+    text-align:center; font-weight:700; letter-spacing:.5px;
+  }
+  main{max-width:880px;margin:16px auto;padding:0 12px 32px;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .field{width:100%}
+  input,select,button,textarea{
+    font-size:16px;border:1px solid #ddd;border-radius:10px; padding:12px;
+    background:#fff; outline:none;
+  }
+  textarea{min-height:96px;resize:vertical}
+  select{padding-right:34px}
+  .btn{
+    border:none;background:linear-gradient(180deg,var(--accent1),var(--accent2));
+    color:#222;font-weight:700; padding:12px 18px;border-radius:12px;
+    box-shadow:var(--shadow);
+  }
+  .note{color:var(--muted);font-size:13px; margin:10px 4px 0}
+  .panel{background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:14px}
+  .list{display:grid; gap:12px; margin-top:16px}
+  .card{
+    background:#f2f9e9;border:1px solid #e1efd3;border-radius:14px;padding:12px;
+  }
+  .title{font-weight:700}
+  .meta{color:var(--muted);font-size:13px;margin-top:6px}
+  .actions{display:flex;gap:8px;margin-top:10px}
+  .smbtn{border:1px solid #ddd;background:#fff;border-radius:10px;padding:8px 10px}
+  .prio{display:inline-flex;align-items:center;gap:6px}
+  .done .title{text-decoration:line-through;color:#9aa0a6}
+  /* mini calendar */
+  .mini-cal{
+    margin-top:16px;background:#fff;border-radius:14px;box-shadow:var(--shadow);
+    overflow:hidden;border:1px solid #eee;
+  }
+  .cal-head{display:flex;justify-content:space-between;align-items:center;
+    padding:8px 10px;background:#fffbe8;border-bottom:1px solid #f1e5b5;}
+  .cal-nav button{border:none;background:transparent;font-size:18px;padding:6px 10px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr); gap:4px; padding:10px}
+  .dow{font-size:11px;color:#888;text-align:center}
+  .day{padding:8px 0;text-align:center;border-radius:8px;border:1px solid transparent}
+  .day.out{color:#bbb}
+  .day.sel{background:#ffe28a;border-color:#ffc84a}
+  .day.today{border-color:#86b7fe}
+</style>
+</head>
+<body>
+<header>SOMApp toDo</header>
+<main>
+  <section class="panel">
+    <div class="row">
+      <input id="title" class="field" placeholder="やること（例：グッズ予約、チケット申し込み）">
+      <textarea id="memo" class="field" placeholder="メモ（任意）"></textarea>
+      <div class="row" style="width:100%">
+        <select id="prio">
+          <option value="high">💛 高</option>
+          <option value="mid" selected>🍀 中</option>
+          <option value="low">🫧 低</option>
+        </select>
+        <input id="date" type="date" style="flex:1;min-width:180px">
+        <button id="add" class="btn" type="button">追加</button>
+      </div>
+    </div>
+    <p class="note">＊データはこの端末のブラウザ（localStorage）に保存されます。</p>
+
+    <!-- mini calendar -->
+    <div id="miniCal" class="mini-cal" aria-label="ミニカレンダー">
+      <div class="cal-head">
+        <div id="calLabel"></div>
+        <div class="cal-nav">
+          <button id="calPrev" aria-label="前の月">‹</button>
+          <button id="calNext" aria-label="次の月">›</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="calGrid">
+        <!-- DOW & days -->
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between">
+      <input id="q" class="field" placeholder="検索（タイトル・メモ）">
+      <label style="display:flex;align-items:center;gap:8px">
+        <input id="showDone" type="checkbox" checked> 完了も表示
+      </label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <select id="sort">
+        <option value="createdAsc">並び：作成順</option>
+        <option value="dateAsc">並び：日付早い順</option>
+        <option value="prioHigh">並び：優先度（高→低）</option>
+      </select>
+      <button id="exportBtn" class="smbtn">↓ エクスポート</button>
+      <button id="importBtn" class="smbtn">↑ インポート</button>
+      <button id="clearDone" class="smbtn" style="margin-left:auto;color:#fff;background:#ff8282;border:none">完了を一括削除</button>
+    </div>
+
+    <div id="list" class="list"></div>
+    <textarea id="io" class="field" placeholder="" style="margin-top:10px;display:none"></textarea>
+  </section>
+</main>
+
+<script>
+(() => {
+  const el = id => document.getElementById(id);
+
+  const titleInput = el('title');
+  const memoInput  = el('memo');
+  const prioSel    = el('prio');
+  const dateInput  = el('date');
+  const addBtn     = el('add');
+
+  const qInput     = el('q');
+  const showDoneCb = el('showDone');
+  const sortSel    = el('sort');
+  const listEl     = el('list');
+  const ioText     = el('io');
+  const exportBtn  = el('exportBtn');
+  const importBtn  = el('importBtn');
+  const clearDone  = el('clearDone');
+
+  // mini calendar elements
+  const miniCal    = el('miniCal');
+  const calGrid    = el('calGrid');
+  const calLabel   = el('calLabel');
+  const calPrev    = el('calPrev');
+  const calNext    = el('calNext');
+
+  const LS_KEY = 'soma_todo_tasks_v1';
+  const pEmoji = {high:'💛', mid:'🍀', low:'🫧'};
+
+  let tasks = [];
+  let now = new Date();
+  let calYear = now.getFullYear();
+  let calMonth = now.getMonth(); // 0-11
+
+  // init default date today
+  dateInput.valueAsDate = new Date();
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      tasks = raw ? JSON.parse(raw) : [];
+    }catch(e){ tasks = []; }
+  }
+  function save(){
+    localStorage.setItem(LS_KEY, JSON.stringify(tasks));
+  }
+
+  function render(){
+    const q = (qInput.value || '').toLowerCase();
+    const showDone = showDoneCb.checked;
+    let data = tasks.filter(t => (showDone || !t.done) &&
+      (t.title.toLowerCase().includes(q) || (t.memo||'').toLowerCase().includes(q)));
+
+    switch (sortSel.value){
+      case 'dateAsc':
+        data.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+        break;
+      case 'prioHigh':
+        const rank = {high:0, mid:1, low:2};
+        data.sort((a,b)=> (rank[a.prio]-rank[b.prio]) || (a.createdAt - b.createdAt));
+        break;
+      default: // createdAsc
+        data.sort((a,b)=> a.createdAt - b.createdAt);
+    }
+
+    listEl.innerHTML = '';
+    if (data.length === 0){
+      const p = document.createElement('p');
+      p.className = 'meta';
+      p.textContent = 'まだタスクがありません';
+      listEl.appendChild(p);
+      return;
+    }
+
+    for(const t of data){
+      const card = document.createElement('div');
+      card.className = 'card' + (t.done ? ' done':'');
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = t.title;
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const d = t.date ? `予定: ${t.date}` : '予定なし';
+      meta.innerHTML =
+        `<span class="prio">${pEmoji[t.prio]} ${({'high':'高','mid':'中','low':'低'})[t.prio]}</span>　
+         <span>${d}</span>　<span>作成: ${new Date(t.createdAt).toLocaleString()}</span>`;
+
+      const memo = document.createElement('div');
+      if (t.memo){ memo.className='meta'; memo.textContent = t.memo; }
+
+      const actions = document.createElement('div'); actions.className='actions';
+      const doneBtn = mkBtn(t.done ? '未完了にする':'完了', ()=>{ t.done=!t.done; save(); render(); });
+      const delBtn  = mkBtn('削除', ()=>{ tasks = tasks.filter(x=>x.id!==t.id); save(); render(); });
+      actions.append(doneBtn, delBtn);
+
+      card.append(title, meta);
+      if (t.memo) card.append(memo);
+      card.append(actions);
+      listEl.appendChild(card);
+    }
+  }
+
+  function mkBtn(label, onClick){
+    const b = document.createElement('button');
+    b.className = 'smbtn';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function addTask(){
+    const title = (titleInput.value || '').trim();
+    if (!title) { titleInput.focus(); return; }
+    const t = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()),
+      title,
+      memo: (memoInput.value||'').trim(),
+      prio: prioSel.value,
+      date: dateInput.value || '',
+      done: false,
+      createdAt: Date.now()
+    };
+    tasks.push(t);
+    save();
+    // clear inputs except prio/date
+    titleInput.value = '';
+    memoInput.value = '';
+    titleInput.focus();
+    render();
+  }
+
+  // mini calendar
+  function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+  function renderCal(){
+    calLabel.textContent = `${calYear}年 ${calMonth+1}月`;
+    const dow = ['日','月','火','水','木','金','土'];
+    calGrid.innerHTML = '';
+    // header row
+    for (let i=0;i<7;i++){
+      const c = document.createElement('div'); c.className='dow'; c.textContent = dow[i];
+      calGrid.appendChild(c);
+    }
+    const first = new Date(calYear, calMonth, 1).getDay();
+    const prevDays = daysInMonth(calYear, calMonth-1);
+    const thisDays = daysInMonth(calYear, calMonth);
+    // prev tail
+    for (let d=prevDays-first+1; d<=prevDays; d++){
+      calGrid.appendChild(dayCell(d,true));
+    }
+    // this month
+    for (let d=1; d<=thisDays; d++){
+      calGrid.appendChild(dayCell(d,false));
+    }
+    // next head
+    const cells = calGrid.children.length - 7; // exclude DOW
+    const pad = Math.ceil(cells/7)*7 - cells;
+    for (let d=1; d<=pad; d++){
+      calGrid.appendChild(dayCell(d,true,true));
+    }
+  }
+  function dayCell(d, out, nextSide=false){
+    const div = document.createElement('div');
+    div.className = 'day' + (out?' out':'');
+    div.textContent = d;
+    let y=calYear, m=calMonth, day=d;
+    if (out){
+      if (d>20 && !nextSide){ m = calMonth-1; if(m<0){m=11;y--;} }
+      else { m = calMonth+1; if(m>11){m=0;y++;} }
+    }
+    const iso = (n)=> String(n).padStart(2,'0');
+    const value = `${y}-${iso(m+1)}-${iso(day)}`;
+
+    // today / selected
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${iso(today.getMonth()+1)}-${iso(today.getDate())}`;
+    if (value === todayIso) div.classList.add('today');
+    if (dateInput.value === value) div.classList.add('sel');
+
+    div.addEventListener('click', ()=>{
+      dateInput.value = value;
+      // keep calendar month synced to selected date's month
+      calYear = y; calMonth = m; renderCal();
+    });
+    return div;
+  }
+
+  // events
+  addBtn.addEventListener('click', addTask);
+  titleInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTask(); }});
+  qInput.addEventListener('input', render);
+  showDoneCb.addEventListener('change', render);
+  sortSel.addEventListener('change', render);
+  clearDone.addEventListener('click', ()=>{
+    tasks = tasks.filter(t=>!t.done); save(); render();
+  });
+
+  exportBtn.addEventListener('click', ()=>{
+    const obj = {app:'somapp-todo', version:'1', data:tasks};
+    const json = JSON.stringify(obj,null,2);
+    ioText.style.display='block';
+    ioText.value = json; ioText.select(); document.execCommand('copy');
+    setTimeout(()=>{ ioText.style.display='none'; }, 400);
+    alert('JSONをコピーしました。');
+  });
+  importBtn.addEventListener('click', ()=>{
+    const json = prompt('JSONを貼り付けてOK');
+    if(!json) return;
+    try{
+      const obj = JSON.parse(json);
+      if (obj && Array.isArray(obj.data)){ tasks = obj.data; save(); render(); }
+    }catch(e){ alert('読み込みに失敗しました'); }
+  });
+
+  // calendar navigation & sync
+  calPrev.addEventListener('click', ()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
+  calNext.addEventListener('click', ()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
+  dateInput.addEventListener('change', ()=>{
+    const d = dateInput.value ? new Date(dateInput.value) : new Date();
+    calYear = d.getFullYear(); calMonth = d.getMonth(); renderCal();
+  });
+
+  // boot
+  load(); render(); renderCal();
+})();
+</script>
+</body>
+</html>
